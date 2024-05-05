@@ -36,7 +36,11 @@ namespace CuponesWS.Controllers
         [HttpGet("{id}")]
         public async Task<ActionResult<CuponModel>> GetCuponModel(int id)
         {
-            var cuponModel = await _context.Cupones.FindAsync(id);
+            var cuponModel = await _context.Cupones
+                .Include (c => c.Cliente)
+                .Include(c => c.Detalle)
+                .Include(c => c.Historial)
+                .FirstOrDefaultAsync(c => c.Id_Cupon == id);
 
             if (cuponModel == null)
             {
@@ -86,6 +90,12 @@ namespace CuponesWS.Controllers
             await _context.SaveChangesAsync();
 
             return CreatedAtAction("GetCuponModel", new { id = cuponModel.Id_Cupon }, cuponModel);
+        }
+
+        [HttpPost]
+        public async Task<ActionResult> RecibirSolicitudCupon([FromBody] object json)
+        {
+            return Ok(json);
         }
 
         // DELETE: api/Cupones/5

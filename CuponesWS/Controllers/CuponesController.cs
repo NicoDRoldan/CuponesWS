@@ -81,9 +81,7 @@ namespace CuponesWS.Controllers
             return NoContent();
         }
 
-        // POST: api/Cupones
-        // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
-        [HttpPost]
+        [HttpPost("CrearCupon")]
         public async Task<ActionResult<CuponModel>> PostCuponModel(CuponModel cuponModel)
         {
             _context.Cupones.Add(cuponModel);
@@ -92,7 +90,7 @@ namespace CuponesWS.Controllers
             return CreatedAtAction("GetCuponModel", new { id = cuponModel.Id_Cupon }, cuponModel);
         }
 
-        [HttpPost]
+        [HttpPost("RecibirSolicitud")]
         public async Task<ActionResult> RecibirSolicitudCupon([FromBody] object json)
         {
             return Ok(json);

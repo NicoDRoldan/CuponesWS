@@ -9,6 +9,8 @@ namespace CuponesWS.Models
         [Key]
         public int Id_Cupon { get; set; }
 
+        public string? Descripcion { get; set; }
+
         public decimal PorcentajeDto { get; set; }
 
         public DateTime FechaInicio { get; set; }
@@ -17,11 +19,11 @@ namespace CuponesWS.Models
 
         #region Navegación
 
-        public virtual ICollection<CClienteModel> Cliente { get; set; }
+        public virtual ICollection<CClienteModel>? Cliente { get; set; }
 
-        public virtual ICollection<CDetalleModel> Detalle { get; set; }
+        public virtual ICollection<CDetalleModel>? Detalle { get; set; }
 
-        public virtual ICollection<CHistorialModel> Historial { get; set; }
+        public virtual ICollection<CHistorialModel>? Historial { get; set; }
 
         #endregion
     }

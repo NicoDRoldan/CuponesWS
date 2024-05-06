@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using CuponesWS.Data;
 using CuponesWS.Models;
+using Microsoft.AspNetCore.DataProtection.AuthenticatedEncryption.ConfigurationModel;
 
 namespace CuponesWS.Controllers
 {
@@ -37,7 +38,7 @@ namespace CuponesWS.Controllers
         public async Task<ActionResult<CuponModel>> GetCuponModel(int id)
         {
             var cuponModel = await _context.Cupones
-                .Include (c => c.Cliente)
+                .Include(c => c.Cliente)
                 .Include(c => c.Detalle)
                 .Include(c => c.Historial)
                 .FirstOrDefaultAsync(c => c.Id_Cupon == id);
@@ -48,37 +49,6 @@ namespace CuponesWS.Controllers
             }
 
             return cuponModel;
-        }
-
-        // PUT: api/Cupones/5
-        // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
-        [HttpPut("{id}")]
-        public async Task<IActionResult> PutCuponModel(int id, CuponModel cuponModel)
-        {
-            if (id != cuponModel.Id_Cupon)
-            {
-                return BadRequest();
-            }
-
-            _context.Entry(cuponModel).State = EntityState.Modified;
-
-            try
-            {
-                await _context.SaveChangesAsync();
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                if (!CuponModelExists(id))
-                {
-                    return NotFound();
-                }
-                else
-                {
-                    throw;
-                }
-            }
-
-            return NoContent();
         }
 
         [HttpPost("CrearCupon")]
@@ -96,25 +66,45 @@ namespace CuponesWS.Controllers
             return Ok(json);
         }
 
-        // DELETE: api/Cupones/5
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteCuponModel(int id)
+        [HttpGet("Cupon/{nroCupon}")]
+        public async Task<IActionResult> ValidarCupon(string nroCupon)
         {
-            var cuponModel = await _context.Cupones.FindAsync(id);
-            if (cuponModel == null)
+
+            var clienteCupon = await _context.CuponesClientes
+                .Where(c => c.NroCupon == nroCupon)
+                .FirstOrDefaultAsync();
+
+            var cupon = await _context.Cupones
+                .Include(c => c.Cliente)
+                .Include(c => c.Detalle)
+                .Where(c => c.Id_Cupon == clienteCupon.Id_Cupon)
+                .FirstOrDefaultAsync();
+
+            if(cupon == null) 
             {
-                return NotFound();
+                return BadRequest("El cupón no es valido");
+            }
+            else if ((cupon.FechaFin > DateTime.Now && cupon.FechaInicio < DateTime.Now) )
+            {
+                return BadRequest("El cupon no entró en vigencia o esta vencido");
             }
 
-            _context.Cupones.Remove(cuponModel);
-            await _context.SaveChangesAsync();
+            var cuponJson = await _context.Cupones
+                .Include(c => c.Detalle)
+                .Where(c => c.Id_Cupon == clienteCupon.Id_Cupon)
+                .Select(ed => new
+                {
+                    Id_Cupon = ed.Id_Cupon,
+                    PorcentajeDto = ed.PorcentajeDto,
+                    Detalle = ed.Detalle.Select(d => new
+                    {
+                        Id_Cupon = d.Id_Cupon,
+                        Id_ArticuloAsociado = d.Id_ArticuloAsociado
+                    }).ToList()
+                })
+                .FirstOrDefaultAsync();
 
-            return NoContent();
-        }
-
-        private bool CuponModelExists(int id)
-        {
-            return _context.Cupones.Any(e => e.Id_Cupon == id);
+            return Ok(cuponJson);
         }
     }
 }

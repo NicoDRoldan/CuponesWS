@@ -8,6 +8,7 @@ using Microsoft.EntityFrameworkCore;
 using CuponesWS.Data;
 using CuponesWS.Models;
 using Microsoft.AspNetCore.DataProtection.AuthenticatedEncryption.ConfigurationModel;
+using System.Text.RegularExpressions;
 
 namespace CuponesWS.Controllers
 {
@@ -69,10 +70,20 @@ namespace CuponesWS.Controllers
         [HttpGet("Cupon/{nroCupon}")]
         public async Task<IActionResult> ValidarCupon(string nroCupon)
         {
+            Regex regex = new Regex(@"^\d{3}-\d{3}-\d{3}$");
+            if (!regex.IsMatch(nroCupon))
+            {
+                return BadRequest("El número de cupón debe tener el formato xxx-xxx-xxx.");
+            }
 
             var clienteCupon = await _context.CuponesClientes
                 .Where(c => c.NroCupon == nroCupon)
                 .FirstOrDefaultAsync();
+
+            if (clienteCupon == null)
+            {
+                return BadRequest("El cupón no es valido");
+            }
 
             var cupon = await _context.Cupones
                 .Include(c => c.Cliente)
@@ -80,11 +91,7 @@ namespace CuponesWS.Controllers
                 .Where(c => c.Id_Cupon == clienteCupon.Id_Cupon)
                 .FirstOrDefaultAsync();
 
-            if(cupon == null) 
-            {
-                return BadRequest("El cupón no es valido");
-            }
-            else if ((cupon.FechaFin > DateTime.Now && cupon.FechaInicio < DateTime.Now) )
+            if (cupon.FechaInicio >= DateTime.Now || cupon.FechaFin <= DateTime.Now)
             {
                 return BadRequest("El cupon no entró en vigencia o esta vencido");
             }

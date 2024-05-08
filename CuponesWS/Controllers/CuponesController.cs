@@ -84,10 +84,37 @@ namespace CuponesWS.Controllers
             return Ok(CClienteModel);
         }
 
-        [HttpPost("RecibirSolicitud")]
-        public async Task<ActionResult> RecibirSolicitudCupon([FromBody] object json)
+        [HttpPost("QuemarCupon")]
+        public async Task<IActionResult> QuemarCupon(string nroCupon)
         {
-            return Ok(json);
+            var cuponCliente = await _context.CuponesClientes
+                .Where(c => c.NroCupon.Equals(nroCupon))
+                .FirstOrDefaultAsync();
+
+            if (cuponCliente == null)
+            {
+                return BadRequest("El cupón no existe");
+            }
+            try
+            {
+                _context.Remove(cuponCliente);
+
+                var cuponHistorico = new CHistorialModel
+                {
+                    Id_Cupon = cuponCliente.Id_Cupon,
+                    NroCupon = cuponCliente.NroCupon,
+                    FechaUso = DateTime.Now,
+                    CodCliente = cuponCliente.CodCliente
+                };
+                _context.CuponesHistorial.Add(cuponHistorico);
+                await _context.SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+                return BadRequest("Error: " + ex.Message);
+            }
+
+            return Ok();
         }
 
         [HttpGet("Cupon/{nroCupon}")]

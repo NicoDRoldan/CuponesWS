@@ -11,5 +11,7 @@ namespace CuponesWS.Models
 
         [Key]
         public int Id_ArticuloAsociado { get; set; }
+
+        public int Cantidad { get; set; }
     }
 }

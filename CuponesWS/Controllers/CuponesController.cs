@@ -9,6 +9,7 @@ using CuponesWS.Data;
 using CuponesWS.Models;
 using Microsoft.AspNetCore.DataProtection.AuthenticatedEncryption.ConfigurationModel;
 using System.Text.RegularExpressions;
+using System.Text;
 
 namespace CuponesWS.Controllers
 {
@@ -53,12 +54,34 @@ namespace CuponesWS.Controllers
         }
 
         [HttpPost("CrearCupon")]
-        public async Task<ActionResult<CuponModel>> PostCuponModel(CuponModel cuponModel)
+        public async Task<ActionResult<CuponModel>> AltaCupon(CuponModel cuponModel)
         {
             _context.Cupones.Add(cuponModel);
             await _context.SaveChangesAsync();
 
             return CreatedAtAction("GetCuponModel", new { id = cuponModel.Id_Cupon }, cuponModel);
+        }
+
+        [HttpPost("CrearCuponCliente")]
+        public async Task<ActionResult<CClienteModel>> AltaCuponDeCliente(CClienteModel CClienteModel )
+        {
+            CClienteModel.NroCupon = CClienteModel.GenerarNumeroCupon();
+
+            var nroCuponBD = await _context.CuponesClientes
+                .Where(c => c.NroCupon.Equals(CClienteModel.NroCupon))
+                .FirstOrDefaultAsync();
+
+            while (nroCuponBD != null)
+            {
+                CClienteModel.NroCupon = CClienteModel.GenerarNumeroCupon();
+            }
+
+            CClienteModel.FechaAsignado = DateTime.Now;
+
+            _context.CuponesClientes.Add(CClienteModel);
+            await _context.SaveChangesAsync();
+
+            return Ok(CClienteModel);
         }
 
         [HttpPost("RecibirSolicitud")]
@@ -106,7 +129,8 @@ namespace CuponesWS.Controllers
                     Detalle = ed.Detalle.Select(d => new
                     {
                         Id_Cupon = d.Id_Cupon,
-                        Id_ArticuloAsociado = d.Id_ArticuloAsociado
+                        Id_ArticuloAsociado = d.Id_ArticuloAsociado,
+                        Cantidad = d.Cantidad
                     }).ToList()
                 })
                 .FirstOrDefaultAsync();

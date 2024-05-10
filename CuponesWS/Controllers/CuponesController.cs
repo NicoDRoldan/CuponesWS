@@ -56,8 +56,15 @@ namespace CuponesWS.Controllers
         [HttpPost("CrearCupon")]
         public async Task<ActionResult<CuponModel>> AltaCupon(CuponModel cuponModel)
         {
-            _context.Cupones.Add(cuponModel);
-            await _context.SaveChangesAsync();
+            try
+            {
+                _context.Cupones.Add(cuponModel);
+                await _context.SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
 
             return CreatedAtAction("GetCuponModel", new { id = cuponModel.Id_Cupon }, cuponModel);
         }
@@ -85,7 +92,7 @@ namespace CuponesWS.Controllers
         }
 
         [HttpPost("QuemarCupon")]
-        public async Task<IActionResult> QuemarCupon(string nroCupon)
+        public async Task<IActionResult> QuemarCupon([FromBody] string nroCupon)
         {
             var cuponCliente = await _context.CuponesClientes
                 .Where(c => c.NroCupon.Equals(nroCupon))
@@ -130,8 +137,13 @@ namespace CuponesWS.Controllers
                 .Where(c => c.NroCupon == nroCupon)
                 .FirstOrDefaultAsync();
 
+            var histCupon = await _context.CuponesHistorial
+                .FirstOrDefaultAsync(ch => ch.NroCupon == nroCupon);
+
             if (clienteCupon == null)
             {
+                if (histCupon is not null) return BadRequest("El cupón ya fue utilizado");
+
                 return BadRequest("El cupón no es valido");
             }
 

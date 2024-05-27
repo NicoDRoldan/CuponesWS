@@ -17,6 +17,8 @@ namespace CuponesWS.Models
 
         public DateTime FechaFin { get; set; }
 
+        public string TipoCupon { get; set; }
+
         #region Navegación
 
         public virtual ICollection<CClienteModel>? Cliente { get; set; }

@@ -19,6 +19,8 @@ namespace CuponesWS.Models
 
         public string TipoCupon { get; set; }
 
+        public string? Url_Imagen { get; set; }
+
         #region Navegación
 
         public virtual ICollection<CClienteModel>? Cliente { get; set; }

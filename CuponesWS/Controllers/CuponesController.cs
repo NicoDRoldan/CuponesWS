@@ -28,11 +28,22 @@ namespace CuponesWS.Controllers
         [HttpGet]
         public async Task<ActionResult<IEnumerable<CuponModel>>> GetCupones()
         {
-            return await _context.Cupones
+            var cupones = new List<CuponModel>();
+
+            try
+            {
+                cupones = await _context.Cupones
                 .Include(c => c.Cliente)
                 .Include(c => c.Detalle)
                 .Include(c => c.Historial)
                 .ToListAsync();
+
+                return cupones;
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
         }
 
         // GET: api/Cupones/5
@@ -69,8 +80,50 @@ namespace CuponesWS.Controllers
             return CreatedAtAction("GetCuponModel", new { id = cuponModel.Id_Cupon }, cuponModel);
         }
 
+        [HttpPost("SubirImagenCupon/{Id_Cupon}")]
+        public async Task<IActionResult> SubirImagenCupon(string id_Cupon, [FromForm] IFormFile imagen)
+        {
+            try
+            {
+                var cupon = await _context.Cupones
+                .Where(c => c.Id_Cupon == int.Parse(id_Cupon))
+                .FirstOrDefaultAsync();
+
+                if (cupon != null)
+                {
+                    var uploadsFolder = "C:\\Repositorio\\Proyecto MVC\\PedidosApp\\PedidosApp\\wwwroot\\images\\cupones";
+                    var uniqueFileName = Guid.NewGuid().ToString() + "_" + imagen.FileName;
+                    var path = Path.Combine(uploadsFolder, uniqueFileName);
+
+                    if (!Directory.Exists(uploadsFolder))
+                    {
+                        DirectoryInfo di = Directory.CreateDirectory(uploadsFolder);
+                    }
+
+                    using (var stream = new FileStream(path, FileMode.Create))
+                    {
+                        await imagen.CopyToAsync(stream);
+                    }
+                    cupon.Url_Imagen = "/images/cupones/" + uniqueFileName;
+
+                    _context.Update(cupon);
+                    await _context.SaveChangesAsync();
+
+                    return Ok("Imagen guardada correctamente");
+                }
+                else
+                {
+                    return BadRequest("Error que se yo tengo sueño");
+                }
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+
         [HttpPost("CrearCuponCliente")]
-        public async Task<ActionResult<CClienteModel>> AltaCuponDeCliente(CClienteModel CClienteModel )
+        public async Task<ActionResult<CClienteModel>> AltaCuponDeCliente(CClienteModel CClienteModel)
         {
             CClienteModel.NroCupon = CClienteModel.GenerarNumeroCupon();
 

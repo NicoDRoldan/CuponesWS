@@ -17,7 +17,7 @@ namespace CuponesWS.Models
 
         public DateTime FechaFin { get; set; }
 
-        public string TipoCupon { get; set; }
+        public string? TipoCupon { get; set; }
 
         public string? Url_Imagen { get; set; }
 

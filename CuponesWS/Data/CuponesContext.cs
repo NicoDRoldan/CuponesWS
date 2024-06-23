@@ -11,6 +11,8 @@ namespace CuponesWS.Data
         public DbSet<CuponesWS.Models.CClienteModel> CuponesClientes { get; set; }
         public DbSet<CuponesWS.Models.CDetalleModel> CuponesDetalles { get; set; }
         public DbSet<CuponesWS.Models.CHistorialModel> CuponesHistorial { get; set; }
+        public DbSet<CuponesWS.Models.CCategoriaModel> CuponesCategorias { get; set; } // Modelo de Categorias
+        public DbSet<CuponesWS.Models.CCuponesCategoriasModel> Cupones_Categorias { get; set; } // Relación de muchos a muchos
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -20,6 +22,11 @@ namespace CuponesWS.Data
                 .HasKey(cd => new { cd.Id_Cupon, cd.Id_ArticuloAsociado });
             modelBuilder.Entity<CHistorialModel>()
                 .HasKey(ch => new { ch.Id_Cupon, ch.NroCupon });
+
+            modelBuilder.Entity<CCuponesCategoriasModel>()
+                .HasOne(cc => cc.Cupon)
+                .WithMany(cc => cc.Cupones_Categorias)
+                .HasForeignKey(cc => cc.Id_Cupon);
 
             base.OnModelCreating(modelBuilder);
         }

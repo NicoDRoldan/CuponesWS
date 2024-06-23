@@ -1,5 +1,6 @@
 using CuponesWS.Data;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json.Serialization;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -25,7 +26,14 @@ builder.Services.AddCors(options =>
     });
 });
 
+builder.Services.AddControllers().AddJsonOptions(options =>
+{
+    options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
+    options.JsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
+});
+
 builder.WebHost.UseUrls("https://localhost:7159");
+builder.WebHost.UseUrls("http://localhost:5203");
 
 var app = builder.Build();
 

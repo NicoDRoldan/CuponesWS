@@ -21,6 +21,9 @@ namespace CuponesWS.Models
 
         public string? Url_Imagen { get; set; }
 
+        [NotMapped]
+        public List<int>? CategoriasSeleccionadas { get; set; }
+
         #region Navegación
 
         public virtual ICollection<CClienteModel>? Cliente { get; set; }
@@ -28,6 +31,8 @@ namespace CuponesWS.Models
         public virtual ICollection<CDetalleModel>? Detalle { get; set; }
 
         public virtual ICollection<CHistorialModel>? Historial { get; set; }
+
+        public virtual ICollection<CCuponesCategoriasModel>? Cupones_Categorias { get; set; }
 
         #endregion
     }

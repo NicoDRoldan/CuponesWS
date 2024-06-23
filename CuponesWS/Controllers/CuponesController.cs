@@ -10,6 +10,7 @@ using CuponesWS.Models;
 using Microsoft.AspNetCore.DataProtection.AuthenticatedEncryption.ConfigurationModel;
 using System.Text.RegularExpressions;
 using System.Text;
+using System.Runtime.InteropServices;
 
 namespace CuponesWS.Controllers
 {
@@ -29,13 +30,15 @@ namespace CuponesWS.Controllers
         public async Task<ActionResult<IEnumerable<CuponModel>>> GetCupones()
         {
             var cupones = new List<CuponModel>();
-
             try
             {
                 cupones = await _context.Cupones
                 .Include(c => c.Cliente)
                 .Include(c => c.Detalle)
                 .Include(c => c.Historial)
+                .Include(c => c.Cupones_Categorias)
+                    .ThenInclude(cc => cc.Categoria)
+                .Where(c => DateTime.Now.Date >= c.FechaInicio && DateTime.Now.Date <= c.FechaFin) // Filtro para traer solo los cupones vigentes.
                 .ToListAsync();
 
                 return cupones;

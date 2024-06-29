@@ -21,6 +21,8 @@ namespace CuponesWS.Models
 
         public string? Url_Imagen { get; set; }
 
+        public bool Activo { get; set; }
+
         [NotMapped]
         public List<int>? CategoriasSeleccionadas { get; set; }
 

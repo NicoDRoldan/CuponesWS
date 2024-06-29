@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.DataProtection.AuthenticatedEncryption.ConfigurationM
 using System.Text.RegularExpressions;
 using System.Text;
 using System.Runtime.InteropServices;
+using CuponesWS.Models.DTO;
 
 namespace CuponesWS.Controllers
 {
@@ -38,7 +39,8 @@ namespace CuponesWS.Controllers
                 .Include(c => c.Historial)
                 .Include(c => c.Cupones_Categorias)
                     .ThenInclude(cc => cc.Categoria)
-                .Where(c => DateTime.Now.Date >= c.FechaInicio && DateTime.Now.Date <= c.FechaFin) // Filtro para traer solo los cupones vigentes.
+                //.Where(c => (DateTime.Now.Date >= c.FechaInicio && DateTime.Now.Date <= c.FechaFin)
+                //    && c.Activo == true) // Filtro para traer solo los cupones vigentes.
                 .ToListAsync();
 
                 return cupones;
@@ -51,13 +53,50 @@ namespace CuponesWS.Controllers
 
         // GET: api/Cupones/5
         [HttpGet("{id}")]
-        public async Task<ActionResult<CuponModel>> GetCuponModel(int id)
+        public async Task<ActionResult<CuponDTO>> GetCuponModel(int id)
         {
             var cuponModel = await _context.Cupones
                 .Include(c => c.Cliente)
                 .Include(c => c.Detalle)
                 .Include(c => c.Historial)
-                .FirstOrDefaultAsync(c => c.Id_Cupon == id);
+                .Include(c => c.Cupones_Categorias)
+                .Where(c => c.Id_Cupon == id)
+                .Select(c => new CuponDTO
+                {
+                    Id_Cupon = c.Id_Cupon,
+                    Descripcion = c.Descripcion,
+                    PorcentajeDTO = c.PorcentajeDto,
+                    FechaInicio = c.FechaInicio,
+                    FechaFin = c.FechaFin,
+                    TipoCupon = c.TipoCupon,
+                    Url_Imagen = c.Url_Imagen,
+                    Activo = c.Activo,
+                    CategoriasSeleccionadas = c.Cupones_Categorias
+                                                .Select(cc => cc.Id_Categoria).ToList(),
+                    ArticulosSeleccionados = c.Detalle
+                                                .Select(cd => cd.Id_ArticuloAsociado).ToList(),
+                    Cliente = c.Cliente.Select(cliente => new ClienteDTO
+                    {
+                        Id_cupon = cliente.Id_Cupon,
+                        NroCupon = cliente.NroCupon,
+                        FechaAsignado = cliente.FechaAsignado,
+                        CodCliente = cliente.CodCliente
+                    }).ToList(),
+                    Detalle = c.Detalle.Select(detalle => new DetalleDTO
+                    {
+                        Id_Cupon = detalle.Id_Cupon,
+                        Id_ArticuloAsociado = detalle.Id_ArticuloAsociado,
+                        Cantidad = detalle.Cantidad
+                    }).ToList(),
+                    Historial = c.Historial.Select(historial => new HistorialDTO
+                    {
+                        Id_Cupon = historial.Id_Cupon,
+                        NroCupon = historial.NroCupon,
+                        FechaUso = historial.FechaUso,
+                        CodCliente = historial.CodCliente
+                    }).ToList()
+                })
+                .FirstOrDefaultAsync();
 
             if (cuponModel == null)
             {
@@ -74,6 +113,20 @@ namespace CuponesWS.Controllers
             {
                 _context.Cupones.Add(cuponModel);
                 await _context.SaveChangesAsync();
+
+                if (cuponModel.CategoriasSeleccionadas.Any())
+                {
+                    foreach (var id_Categoria in cuponModel.CategoriasSeleccionadas)
+                    {
+                        var cupones_Categorias = new CCuponesCategoriasModel
+                        {
+                            Id_Cupon = cuponModel.Id_Cupon,
+                            Id_Categoria = id_Categoria
+                        };
+                        _context.Cupones_Categorias.Add(cupones_Categorias);
+                    }
+                    await _context.SaveChangesAsync();
+                }
             }
             catch (Exception ex)
             {
@@ -94,20 +147,27 @@ namespace CuponesWS.Controllers
 
                 if (cupon != null)
                 {
-                    var uploadsFolder = "C:\\Repositorio\\Proyecto MVC\\PedidosApp\\PedidosApp\\wwwroot\\images\\cupones";
-                    var uniqueFileName = Guid.NewGuid().ToString() + "_" + imagen.FileName;
-                    var path = Path.Combine(uploadsFolder, uniqueFileName);
-
-                    if (!Directory.Exists(uploadsFolder))
+                    if(imagen != null)
                     {
-                        DirectoryInfo di = Directory.CreateDirectory(uploadsFolder);
-                    }
+                        var uploadsFolder = "C:\\Repositorio\\Proyecto MVC\\PedidosApp\\PedidosApp\\wwwroot\\images\\cupones";
+                        var uniqueFileName = Guid.NewGuid().ToString() + "_" + imagen.FileName;
+                        var path = Path.Combine(uploadsFolder, uniqueFileName);
 
-                    using (var stream = new FileStream(path, FileMode.Create))
-                    {
-                        await imagen.CopyToAsync(stream);
+                        if (!Directory.Exists(uploadsFolder))
+                        {
+                            DirectoryInfo di = Directory.CreateDirectory(uploadsFolder);
+                        }
+
+                        using (var stream = new FileStream(path, FileMode.Create))
+                        {
+                            await imagen.CopyToAsync(stream);
+                        }
+                        cupon.Url_Imagen = "/images/cupones/" + uniqueFileName;
                     }
-                    cupon.Url_Imagen = "/images/cupones/" + uniqueFileName;
+                    else
+                    {
+                        cupon.Url_Imagen = await _context.Cupones.AsNoTracking().Where(c => c.Id_Cupon == int.Parse(id_Cupon)).Select(c => c.Url_Imagen).FirstOrDefaultAsync();
+                    }
 
                     _context.Update(cupon);
                     await _context.SaveChangesAsync();
@@ -231,6 +291,97 @@ namespace CuponesWS.Controllers
                 .FirstOrDefaultAsync();
 
             return Ok(cuponJson);
+        }
+
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> Delete(int id)
+        {
+            try
+            {
+                var cupon = await _context.Cupones.FirstOrDefaultAsync(c => c.Id_Cupon == id);
+
+                if (cupon != null)
+                {
+                    var cupon_Cliente = await _context.CuponesClientes.Where(c => c.Id_Cupon == id).ToListAsync();
+
+                    if (cupon_Cliente.Any()) return BadRequest("No se puede eliminar el cupón debido a que un cliente tiene el cupón vigente");
+
+                    var cupon_Detalle = await _context.CuponesDetalles.Where(c => c.Id_Cupon == id).ToListAsync();
+
+                    if (cupon_Detalle.Any()) _context.CuponesDetalles.RemoveRange(cupon_Detalle);
+
+                    var categorias_Cupones = await _context.Cupones_Categorias.Where(c => c.Id_Cupon == id).ToListAsync();
+
+                    if (categorias_Cupones.Any()) _context.Cupones_Categorias.RemoveRange(categorias_Cupones);
+                    
+
+                    _context.Cupones.Remove(cupon);
+
+                    await _context.SaveChangesAsync();
+
+                    return Ok("Cupón eliminado correctamente");
+                }
+                else
+                {
+                    return BadRequest("El cupón no existe.");
+                }
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+
+        [HttpPut("{id}")]
+        public async Task<IActionResult> Edit(int id, CuponModel cupon)
+        {
+            try
+            {
+                List<int> idTotalCategorias = await _context.CuponesCategorias.Select(cc => cc.Id_Categoria).ToListAsync();
+                var cupones_CategoriasExistentes = await _context.Cupones_Categorias.Where(c => c.Id_Cupon == id).ToListAsync();
+
+                if (cupon.CategoriasSeleccionadas != null)
+                {
+                    if (cupon.CategoriasSeleccionadas.Any())
+                    {
+                        foreach (var id_CategoriaSeleccionada in cupon.CategoriasSeleccionadas)
+                        {
+                            foreach (var id_Categoria in idTotalCategorias)
+                            {
+                                var cuponCategoriaExt = await _context.Cupones_Categorias
+                                    .Where(cc => cc.Id_Cupon == id && cc.Id_Categoria == id_Categoria)
+                                    .FirstOrDefaultAsync();
+
+                                if (id_Categoria == id_CategoriaSeleccionada && cuponCategoriaExt is null)
+                                {
+                                    CCuponesCategoriasModel cupones_categorias = new CCuponesCategoriasModel
+                                    {
+                                        Id_Cupon = id,
+                                        Id_Categoria = id_Categoria,
+                                    };
+                                    _context.Add(cupones_categorias);
+                                }
+                                else if (!cupon.CategoriasSeleccionadas.Contains(id_Categoria) && cuponCategoriaExt != null)
+                                {
+                                    _context.Remove(cuponCategoriaExt);
+                                }
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    _context.RemoveRange(cupones_CategoriasExistentes);
+                }
+                _context.Update(cupon);
+                await _context.SaveChangesAsync();
+
+                return Ok();
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
         }
     }
 }

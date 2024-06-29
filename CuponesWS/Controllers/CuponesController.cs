@@ -130,14 +130,22 @@ namespace CuponesWS.Controllers
             }
             catch (Exception ex)
             {
-                return BadRequest(ex.Message);
+                return BadRequest($"Error al crear el cupón: {ex.Message}");
             }
 
-            return CreatedAtAction("GetCuponModel", new { id = cuponModel.Id_Cupon }, cuponModel);
+            var message = $"Cupón de {cuponModel.TipoCupon.ToLower()} creado correctamente.";
+
+            var response = new
+            {
+                Message = message,
+                Cupon = cuponModel
+            };
+
+            return CreatedAtAction("GetCuponModel", new { id = cuponModel.Id_Cupon }, response);
         }
 
         [HttpPost("SubirImagenCupon/{Id_Cupon}")]
-        public async Task<IActionResult> SubirImagenCupon(string id_Cupon, [FromForm] IFormFile imagen)
+        public async Task<IActionResult> SubirImagenCupon(string id_Cupon, [FromForm] IFormFile? imagen = null)
         {
             try
             {
@@ -304,7 +312,8 @@ namespace CuponesWS.Controllers
                 {
                     var cupon_Cliente = await _context.CuponesClientes.Where(c => c.Id_Cupon == id).ToListAsync();
 
-                    if (cupon_Cliente.Any()) return BadRequest("No se puede eliminar el cupón debido a que un cliente tiene el cupón vigente");
+                    if (cupon_Cliente.Any() && (cupon.FechaInicio <= DateTime.Now.Date && cupon.FechaFin >= DateTime.Now.Date)) 
+                        return BadRequest("No se puede eliminar el cupón debido a que un cliente tiene el cupón vigente");
 
                     var cupon_Detalle = await _context.CuponesDetalles.Where(c => c.Id_Cupon == id).ToListAsync();
 
@@ -332,43 +341,49 @@ namespace CuponesWS.Controllers
             }
         }
 
-        [HttpPut("{id}")]
-        public async Task<IActionResult> Edit(int id, CuponModel cuponModel)
+        [HttpPut("EditarCupon/{id}")]
+        public async Task<IActionResult> EditarCupon(int id, CuponModel cuponModel)
         {
             try
             {
+                // Verificar que el cupón exista
                 var cupon = await _context.Cupones
                     .Include(c => c.Detalle)
                     .Where(c => c.Id_Cupon == id)
                     .FirstOrDefaultAsync() ?? throw new Exception("El cupón no existe");
+
+                // Verificar que no haya un Cliente con el Cupón
+                var cuponCliente = await _context.CuponesClientes
+                    .Where(c => c.Id_Cupon == cupon.Id_Cupon)
+                    .FirstOrDefaultAsync();
+
+                if (cuponCliente != null && (cupon.FechaInicio <= DateTime.Now.Date && cupon.FechaFin >= DateTime.Now.Date))
+                    throw new Exception("No es posible editar el cupón debido a que está vigente y tiene un Cliente asociado.");
 
                 cupon.Descripcion = cuponModel.Descripcion;
                 cupon.PorcentajeDto = cuponModel.PorcentajeDto;
                 cupon.FechaInicio = cuponModel.FechaInicio;
                 cupon.FechaFin = cuponModel.FechaFin;
                 cupon.TipoCupon = cuponModel.TipoCupon;
-                cupon.Url_Imagen = cuponModel.Url_Imagen;
+                cupon.Url_Imagen = cupon.Url_Imagen;
                 cupon.Activo = cuponModel.Activo;
 
                 // Edición de Detalle de Cupón
                 var cupones_detallesExistentes = await _context.CuponesDetalles.Where(cd => cd.Id_Cupon == id).ToListAsync();
 
-                if (cuponModel.Detalle != null)
+                if (cuponModel.Detalle != null && cuponModel.Detalle.Any())
                 {
-                    if (cuponModel.Detalle.Any())
-                    {
-                        _context.RemoveRange(cupones_detallesExistentes);
+                    _context.RemoveRange(cupones_detallesExistentes);
 
-                        foreach(var detalle in cuponModel.Detalle)
+                    foreach (var detalle in cuponModel.Detalle)
+                    {
+                        CDetalleModel cDetalleModel = new CDetalleModel
                         {
-                            CDetalleModel cDetalleModel = new CDetalleModel
-                            {
-                                Id_Cupon = id,
-                                Id_ArticuloAsociado = detalle.Id_ArticuloAsociado,
-                                Cantidad = detalle.Cantidad
-                            };
-                            _context.Add(cDetalleModel);
-                        }
+                            Id_Cupon = id,
+                            Id_ArticuloAsociado = detalle.Id_ArticuloAsociado,
+                            Cantidad = detalle.Cantidad
+                        };
+                        _context.Add(cDetalleModel);
                     }
                 }
                 else
@@ -417,7 +432,15 @@ namespace CuponesWS.Controllers
                 _context.Update(cupon);
                 await _context.SaveChangesAsync();
 
-                return Ok();
+                var message = $"Cupón de {cupon.TipoCupon.ToLower()} ({cupon.Id_Cupon}) editado correctamente.";
+
+                var response = new
+                {
+                    Message = message,
+                    Cupon = cupon
+                };
+
+                return Ok(response);
             }
             catch (Exception ex)
             {

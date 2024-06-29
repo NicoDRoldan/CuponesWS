@@ -19,6 +19,7 @@
         public bool Activo {  get; set; }
 
         public List<int>? CategoriasSeleccionadas { get; set; }
+
         public List<int>? ArticulosSeleccionados { get; set; }
 
         public virtual ICollection<ClienteDTO>? Cliente {  get; set; }

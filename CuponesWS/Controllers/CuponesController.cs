@@ -333,18 +333,58 @@ namespace CuponesWS.Controllers
         }
 
         [HttpPut("{id}")]
-        public async Task<IActionResult> Edit(int id, CuponModel cupon)
+        public async Task<IActionResult> Edit(int id, CuponModel cuponModel)
         {
             try
             {
+                var cupon = await _context.Cupones
+                    .Include(c => c.Detalle)
+                    .Where(c => c.Id_Cupon == id)
+                    .FirstOrDefaultAsync() ?? throw new Exception("El cupón no existe");
+
+                cupon.Descripcion = cuponModel.Descripcion;
+                cupon.PorcentajeDto = cuponModel.PorcentajeDto;
+                cupon.FechaInicio = cuponModel.FechaInicio;
+                cupon.FechaFin = cuponModel.FechaFin;
+                cupon.TipoCupon = cuponModel.TipoCupon;
+                cupon.Url_Imagen = cuponModel.Url_Imagen;
+                cupon.Activo = cuponModel.Activo;
+
+                // Edición de Detalle de Cupón
+                var cupones_detallesExistentes = await _context.CuponesDetalles.Where(cd => cd.Id_Cupon == id).ToListAsync();
+
+                if (cuponModel.Detalle != null)
+                {
+                    if (cuponModel.Detalle.Any())
+                    {
+                        _context.RemoveRange(cupones_detallesExistentes);
+
+                        foreach(var detalle in cuponModel.Detalle)
+                        {
+                            CDetalleModel cDetalleModel = new CDetalleModel
+                            {
+                                Id_Cupon = id,
+                                Id_ArticuloAsociado = detalle.Id_ArticuloAsociado,
+                                Cantidad = detalle.Cantidad
+                            };
+                            _context.Add(cDetalleModel);
+                        }
+                    }
+                }
+                else
+                {
+                    _context.RemoveRange(cupones_detallesExistentes);
+                }
+
+                // Edición de Categorias
                 List<int> idTotalCategorias = await _context.CuponesCategorias.Select(cc => cc.Id_Categoria).ToListAsync();
                 var cupones_CategoriasExistentes = await _context.Cupones_Categorias.Where(c => c.Id_Cupon == id).ToListAsync();
 
-                if (cupon.CategoriasSeleccionadas != null)
+                if (cuponModel.CategoriasSeleccionadas != null)
                 {
-                    if (cupon.CategoriasSeleccionadas.Any())
+                    if (cuponModel.CategoriasSeleccionadas.Any())
                     {
-                        foreach (var id_CategoriaSeleccionada in cupon.CategoriasSeleccionadas)
+                        foreach (var id_CategoriaSeleccionada in cuponModel.CategoriasSeleccionadas)
                         {
                             foreach (var id_Categoria in idTotalCategorias)
                             {
@@ -361,7 +401,7 @@ namespace CuponesWS.Controllers
                                     };
                                     _context.Add(cupones_categorias);
                                 }
-                                else if (!cupon.CategoriasSeleccionadas.Contains(id_Categoria) && cuponCategoriaExt != null)
+                                else if (!cuponModel.CategoriasSeleccionadas.Contains(id_Categoria) && cuponCategoriaExt != null)
                                 {
                                     _context.Remove(cuponCategoriaExt);
                                 }
@@ -373,6 +413,7 @@ namespace CuponesWS.Controllers
                 {
                     _context.RemoveRange(cupones_CategoriasExistentes);
                 }
+
                 _context.Update(cupon);
                 await _context.SaveChangesAsync();
 

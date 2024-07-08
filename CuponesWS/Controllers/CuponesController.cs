@@ -39,8 +39,30 @@ namespace CuponesWS.Controllers
                 .Include(c => c.Historial)
                 .Include(c => c.Cupones_Categorias)
                     .ThenInclude(cc => cc.Categoria)
-                //.Where(c => (DateTime.Now.Date >= c.FechaInicio && DateTime.Now.Date <= c.FechaFin)
-                //    && c.Activo == true) // Filtro para traer solo los cupones vigentes.
+                .Where(c => (DateTime.Now.Date >= c.FechaInicio && DateTime.Now.Date <= c.FechaFin)
+                    && c.Activo == true) // Filtro para traer solo los cupones vigentes.
+                .ToListAsync();
+
+                return cupones;
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+
+        [HttpGet("GetAllCupones")]
+        public async Task<ActionResult<IEnumerable<CuponModel>>> GetAllCupones()
+        {
+            var cupones = new List<CuponModel>();
+            try
+            {
+                cupones = await _context.Cupones
+                .Include(c => c.Cliente)
+                .Include(c => c.Detalle)
+                .Include(c => c.Historial)
+                .Include(c => c.Cupones_Categorias)
+                    .ThenInclude(cc => cc.Categoria)
                 .ToListAsync();
 
                 return cupones;
@@ -66,6 +88,7 @@ namespace CuponesWS.Controllers
                     Id_Cupon = c.Id_Cupon,
                     Descripcion = c.Descripcion,
                     PorcentajeDTO = c.PorcentajeDto,
+                    ImportePromo = c.ImportePromo,
                     FechaInicio = c.FechaInicio,
                     FechaFin = c.FechaFin,
                     TipoCupon = c.TipoCupon,
@@ -114,18 +137,21 @@ namespace CuponesWS.Controllers
                 _context.Cupones.Add(cuponModel);
                 await _context.SaveChangesAsync();
 
-                if (cuponModel.CategoriasSeleccionadas.Any())
+                if (cuponModel.CategoriasSeleccionadas is not null)
                 {
-                    foreach (var id_Categoria in cuponModel.CategoriasSeleccionadas)
+                    if (cuponModel.CategoriasSeleccionadas.Any())
                     {
-                        var cupones_Categorias = new CCuponesCategoriasModel
+                        foreach (var id_Categoria in cuponModel.CategoriasSeleccionadas)
                         {
-                            Id_Cupon = cuponModel.Id_Cupon,
-                            Id_Categoria = id_Categoria
-                        };
-                        _context.Cupones_Categorias.Add(cupones_Categorias);
+                            var cupones_Categorias = new CCuponesCategoriasModel
+                            {
+                                Id_Cupon = cuponModel.Id_Cupon,
+                                Id_Categoria = id_Categoria
+                            };
+                            _context.Cupones_Categorias.Add(cupones_Categorias);
+                        }
+                        await _context.SaveChangesAsync();
                     }
-                    await _context.SaveChangesAsync();
                 }
             }
             catch (Exception ex)
@@ -362,6 +388,7 @@ namespace CuponesWS.Controllers
 
                 cupon.Descripcion = cuponModel.Descripcion;
                 cupon.PorcentajeDto = cuponModel.PorcentajeDto;
+                cupon.ImportePromo = cuponModel.ImportePromo;
                 cupon.FechaInicio = cuponModel.FechaInicio;
                 cupon.FechaFin = cuponModel.FechaFin;
                 cupon.TipoCupon = cuponModel.TipoCupon;

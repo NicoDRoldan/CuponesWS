@@ -13,6 +13,8 @@ namespace CuponesWS.Models
 
         public decimal PorcentajeDto { get; set; }
 
+        public decimal? ImportePromo { get; set; }
+
         public DateTime FechaInicio { get; set; }
 
         public DateTime FechaFin { get; set; }

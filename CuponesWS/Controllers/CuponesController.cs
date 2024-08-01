@@ -12,6 +12,8 @@ using System.Text.RegularExpressions;
 using System.Text;
 using System.Runtime.InteropServices;
 using CuponesWS.Models.DTO;
+using Microsoft.Data.SqlClient;
+using System.Data.Common;
 
 namespace CuponesWS.Controllers
 {
@@ -220,25 +222,51 @@ namespace CuponesWS.Controllers
         }
 
         [HttpPost("CrearCuponCliente")]
-        public async Task<ActionResult<CClienteModel>> AltaCuponDeCliente(CClienteModel CClienteModel)
+        public async Task<ActionResult<CClienteModel>> AltaCuponDeCliente(CClienteModel cClienteModel)
         {
-            CClienteModel.NroCupon = CClienteModel.GenerarNumeroCupon();
-
-            var nroCuponBD = await _context.CuponesClientes
-                .Where(c => c.NroCupon.Equals(CClienteModel.NroCupon))
-                .FirstOrDefaultAsync();
-
-            while (nroCuponBD != null)
+            try
             {
-                CClienteModel.NroCupon = CClienteModel.GenerarNumeroCupon();
+                var clienteExistente = new CClienteModel();
+
+                // Si existe un cliente con el cupón que quiere reclamar, devuelve un error.
+                var cuponClienteReclamado = await _context.CuponesClientes
+                    .Where(c => c.Id_Cupon == cClienteModel.Id_Cupon
+                        && c.CodCliente == cClienteModel.CodCliente)
+                    .FirstOrDefaultAsync();
+
+                if (cuponClienteReclamado is not null)
+                    throw new Exception("El cupón ya ha sido reclamado por el cliente.");
+
+                // Si ya existe un cliente con ese número de cupón, dicho número se vuelve a generar.
+                do
+                {
+                    cClienteModel.NroCupon = cClienteModel.GenerarNumeroCupon();
+
+                    clienteExistente = await _context.CuponesClientes
+                        .Where(c => c.NroCupon.Equals(cClienteModel.NroCupon))
+                        .FirstOrDefaultAsync();
+
+                } while (clienteExistente != null);
+
+                cClienteModel.FechaAsignado = DateTime.Now;
+
+                _context.CuponesClientes.Add(cClienteModel);
+                await _context.SaveChangesAsync();
+
+                return Ok(cClienteModel);
             }
-
-            CClienteModel.FechaAsignado = DateTime.Now;
-
-            _context.CuponesClientes.Add(CClienteModel);
-            await _context.SaveChangesAsync();
-
-            return Ok(CClienteModel);
+            catch (SqlException ex)
+            {
+                return BadRequest(ex.Message);
+            }
+            catch (DbUpdateException ex)
+            {
+                return BadRequest(ex.InnerException.ToString());
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
         }
 
         [HttpPost("QuemarCupon")]
